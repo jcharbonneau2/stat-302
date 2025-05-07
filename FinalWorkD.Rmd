@@ -4,3 +4,79 @@ author: "Josie Browning"
 date: "2025-05-05"
 output: html_document
 ---
+```{r}
+library(readxl)
+estate <- read_excel("Real estate valuation data set.xlsx")
+ 
+###### Real Estate Data #######
+min_date <- min(estate$`X1 transaction date`)
+estate$time_point <- round((estate$`X1 transaction date` - min_date) * 12)
+ 
+model <- lm(`Y house price of unit area` ~ time_point + `X2 house age` +
+              `X3 distance to the nearest MRT station` +
+              `X4 number of convenience stores` +
+              `X5 latitude` + `X6 longitude`,
+            data = estate)
+ 
+########################################   STEP 1    ########################################################
+ 
+# Compute Cook's Distance
+cooksd <- cooks.distance(model)
+ 
+# Plot Cook's distance
+plot(cooksd, type = "h", main = "Cook’s Distance", ylab = "Cook's Distance")
+abline(h = 4 / length(cooksd), col = "red", lty = 2)  # Threshold rule-of-thumb
+ 
+# Identify high influence points
+influential_points <- which(cooksd > 4 / length(cooksd))
+estate[influential_points, ]
+ 
+##### ESTATE 1 HAS INFLUENTIAL POINTS REMOVED #####
+estate_1 <- estate[-influential_points, ]
+ 
+model_1 <- update(model, data = estate_1)
+ 
+#########################################   STEP 2     #######################################################
+library('ggplot2')
+library('GGally')
+library(car)
+library(dplyr)
+ 
+summary(model_1)
+ggpairs(estate_1) # generate pairwise scatter plot
+ 
+model_full <- lm(`Y house price of unit area` ~ ., data = estate_1)
+summary(model_full)
+ 
+# VIF check
+vif(model_full)
+ 
+alias(model_full)
+ 
+estate_2 <- estate_1 %>% select(-`X1 transaction date`)
+ 
+model_full <- lm(`Y house price of unit area` ~ ., data = estate_2)
+summary(model_full)
+ 
+vif(model_full)
+ 
+### All of our VIF values are under 5 ###
+ 
+ 
+#########################################   STEP 3     #######################################################
+library(skedastic)
+library(lmtest)
+ 
+#white test
+white(mainlm = model_full, interactions = FALSE)
+#p-value = 0.121, this means there is not heteroscedasticity in the dataset
+ 
+#########################################   STEP 4     #######################################################
+dwtest(model_full)
+#durbin-watson test gave p-value=0.539 - no autocorrelation
+ 
+#########################################   STEP 5     #######################################################
+qqnorm(resid(model_full), main = "Q-Q Plot of Real Estate Data", xlab = "Theoretical Quantiles", ylab = "Sample Quantiles", col = "blue", pch = 19)
+qqline(resid(model_full), col = "red", lwd = 2)
+#qq-line shows a pretty normal distribution of residuals
+```
