@@ -4,3 +4,137 @@ author: "Josie Browning"
 date: "2025-05-05"
 output: html_document
 ---
+For the auto mpg dataset. "mpg" is the response variable. The predictors are: 
+
+    2. cylinders:     multi-valued discrete
+    3. displacement:  continuous
+    4. horsepower:    continuous
+    5. weight:        continuous
+    6. acceleration:  continuous
+    7. model year:    multi-valued discrete
+    8. origin:        multi-valued discrete
+    
+```{r, warning=FALSE}
+library(readr)
+library(dplyr)
+library(ggplot2)
+
+auto <- read_csv("auto+mpg/auto.csv")
+
+#renaming columns
+colnames(auto) = c("mpg", "cylinders", "displacement", "horsepower", "weight", "acceleration", "model_year", "origin", "model", "make", "extra")
+
+#cleaning the data 
+auto_mpg <- auto %>%
+  select(-model, -make, -extra) %>%
+  mutate(horsepower = as.numeric(horsepower),
+         model_year = 1900 + model_year) %>%
+  filter(horsepower != "NA")
+
+#use dummy variable for origin 
+auto_mpg$origin.f = as.factor(auto_mpg$origin)
+is.factor(auto_mpg$origin.f)
+auto_mpg$origin.f
+
+#model
+model = lm(mpg ~ cylinders + displacement + horsepower + weight + acceleration + model_year + origin.f, data = auto_mpg)
+summary(model)
+#p-value = 2.2e-16
+#adj r squ = 0.8205
+```
+
+Step 1. assess the presence of outliers and influential points. If influential points are detected, remove the entire row from the dataset
+```{r}
+cd <- cooks.distance(model)
+threshold <- 2 * ((8)/nrow(auto_mpg))
+
+auto_mpg <- auto_mpg %>%
+  mutate(cd = round(cooks.distance(model), 3),
+         inf_pt = ifelse(cd > threshold, "Yes", "No"))
+
+ggplot(auto_mpg, aes(x = 1:nrow(auto_mpg), y = cd, fill = inf_pt, color = inf_pt)) +
+  geom_point() +
+  geom_hline(yintercept = threshold) +
+  labs(title = "Cook's Distance Plot", x = "Observation Index", y = "Cook's Distance")
+
+#we can see three influential points being flagged above the threshold 
+
+auto_mpg1 <- auto_mpg %>%
+  filter(inf_pt == "No")
+
+model1 = lm(mpg ~ cylinders + displacement + horsepower + weight + acceleration + model_year + origin.f, data = auto_mpg1)
+summary(model1)
+#adj r squ = 0.8243
+```
+
+Step 2. assess the presence of multicollinearity from the dataset obtained after Step 1. If multicollinearity is detected, use VIF to successively remove predictors until the no multicollinearity is detected
+```{r}
+library(car)
+
+vif(model1)
+#cylinders, displacement, horsepower, and weight all have vif > 10, close to mc
+
+model2 = lm(mpg ~ acceleration + weight + model_year + origin.f, data = auto_mpg1)
+
+vif(model2)
+#remove displacement, horsepower, and cylinders, all vif < 2 now 
+
+summary(model2)
+#adj r squ = 0.8208, model is improved 
+```
+
+Step 3. assess the presence of heteroskedasticity in the dataset obtained after Step 1 and Step 2. If heteroskedasticity is detected, use White corrected standard errors (see R package lmtest and sandwich). Note that at this step you do not need to make any deletion
+```{r}
+library(skedastic)
+library(lmtest)
+
+#white test
+white(mainlm = model2, interactions = FALSE)
+#p-value = 0.00026, this means there is heteroscedasticity in the dataset
+
+#log transformation
+model3 <- lm(log(mpg) ~ log(acceleration) + weight + model_year + origin.f, data = auto_mpg1)
+white(mainlm = model3, interactions = FALSE)
+#p-value = 0.0977
+summary(model3)
+#adj r squ = 0.8758
+```
+
+Step 4. assess the presence of autocorrelation (use Durbin-Watson test) on the dataset obtained after Step 1 and Step 2. What happens if autocorrelation is detected? See Chap 10, section 7 on the construction of time series model.
+```{r}
+#Durbin-Watson test
+dwtest(model3)
+#DW = 1.34 and p-value = small, sign of autocorrelation
+```
+Since we suspect that autocorrelation is present, we know the errors are not independent and that the standard errors are unbiased but underestimated 
+
+Step 5.  assess the normality of the residuals on the dataset obtained after Step 1 and Step 2. 
+```{r}
+ggplot(auto_mpg1, aes(x = cylinders, y = model3$residuals)) + geom_point() +
+  xlab("Cylinders") + ylab("Residuals") +
+  geom_hline(yintercept = 0, col=2)
+
+ggplot(auto_mpg1, aes(x = displacement, y = model3$residuals)) + geom_point() +
+  xlab("Displacment") + ylab("Residuals") +
+  geom_hline(yintercept = 0, col=2)
+
+ggplot(auto_mpg1, aes(x = horsepower, y = model3$residuals)) + geom_point() +
+  xlab("Horsepower") + ylab("Residuals") +
+  geom_hline(yintercept = 0, col=2)
+
+ggplot(auto_mpg1, aes(x = weight, y = model3$residuals)) + geom_point() +
+  xlab("Weight") + ylab("Residuals") +
+  geom_hline(yintercept = 0, col=2)
+
+ggplot(auto_mpg1, aes(x = acceleration, y = model3$residuals)) + geom_point() +
+  xlab("Acceleration") + ylab("Residuals") +
+  geom_hline(yintercept = 0, col=2)
+
+ggplot(auto_mpg1, aes(x = origin.f, y = model3$residuals)) + geom_point() +
+  xlab("Origin") + ylab("Residuals") +
+  geom_hline(yintercept = 0, col=2)
+
+
+```
+
+
