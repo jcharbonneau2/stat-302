@@ -138,3 +138,65 @@ ggplot(auto_mpg1, aes(x = origin.f, y = model3$residuals)) + geom_point() +
 ```
 
 
+
+Forest Fire dataset
+
+data cleaning
+```{r}
+forestfires <- read_csv("forestfires.csv")
+
+ff <- forestfires %>%
+  arrange(month) %>%
+  select(-X, -Y, -day)
+
+jan <- ff %>% filter(month == "jan")
+feb <- ff %>% filter(month == "feb")
+mar <- ff %>% filter(month == "mar")
+apr <- ff %>% filter(month == "apr")
+may <- ff %>% filter(month == "may")
+jun <- ff %>% filter(month == "jun")
+jul <- ff %>% filter(month == "jul")
+aug <- ff %>% filter(month == "aug")
+sep <- ff %>% filter(month == "sep")
+oct <- ff %>% filter(month == "oct")
+nov <- ff %>% filter(month == "nov")
+dec <- ff %>% filter(month == "dec")
+
+month_data <- list()
+ff$month <- tolower(as.character(ff$month))
+
+for (m in months) {
+  month_data[[m]] <- ff %>% 
+    filter(month == m)
+}
+
+
+working_date = rbind(mean_date)
+
+```
+
+
+Step 1. assess the presence of outliers and influential points. If influential points are detected, remove the entire row from the dataset
+
+Step 2. assess the presence of multicollinearity from the dataset obtained after Step 1. If multicollinearity is detected, use VIF to successively remove predictors until the no multicollinearity is detected
+```{r}
+```
+
+
+Step 3. assess the presence of heteroskedasticity in the dataset obtained after Step 1 and Step 2. If heteroskedasticity is detected, use White corrected standard errors (see R package lmtest and sandwich). Note that at this step you do not need to make any deletion
+```{r}
+```
+
+
+Step 4. assess the presence of autocorrelation (use Durbin-Watson test) on the dataset obtained after Step 1 and Step 2. What happens if autocorrelation is detected? See Chap 10, section 7 on the construction of time series model.
+```{r}
+```
+
+
+Step 5.  assess the normality of the residuals on the dataset obtained after Step 1 and Step 2. 
+```{r}
+```
+
+
+
+
