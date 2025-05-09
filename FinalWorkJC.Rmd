@@ -1,6 +1,16 @@
 ---
 title: "Final Work JC"
-author: "Josie Browning"
+author: "Jo Charbonneau"
 date: "2025-05-05"
 output: html_document
 ---
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(readr)
+
+##Imported dataset 
+
+
+```
